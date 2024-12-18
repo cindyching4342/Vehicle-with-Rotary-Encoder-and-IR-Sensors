@@ -1,0 +1,128 @@
+#include <LiquidCrystal.h>
+#define Hole1 A4 
+#define Hole2 A5
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+volatile unsigned long counter_Hole1 = 0; 
+volatile unsigned long counter_Hole2 = 0; 
+int lastStateCLK_Hole1;
+int lastStateCLK_Hole2;
+unsigned long timeLast = 0;
+volatile unsigned long lastCounter_Hole1 = 0;
+volatile unsigned long lastCounter_Hole2 = 0;
+float PPR = 20.0;
+float Circumference = 20.0; 
+float timeInterval = 100.0;
+float distance_Hole1 = 0.0;     
+float distance_Hole2 = 0.0; 
+float avgDist = 0.0;
+
+const int ENA = 3;
+const int ENB = 11;
+const int IN1 = 2;
+const int IN2 = A1;
+const int IN3 = A2;
+const int IN4 = A3;
+const int sr = 12;
+const int sl = 13;
+int svr = 0;
+int svl = 0;
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(Hole1, INPUT);
+  pinMode(Hole2, INPUT);
+  lcd.begin(16, 2);
+  pinMode(sr, INPUT_PULLUP); 
+  pinMode(sl, INPUT_PULLUP); 
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  lastStateCLK_Hole1 = digitalRead(Hole1);
+  lastStateCLK_Hole2 = digitalRead(Hole2);
+}
+
+void forward() {
+  analogWrite(ENA, 70);
+  analogWrite(ENB, 70);
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void right() {
+  analogWrite(ENA, 230);
+  analogWrite(ENB, 175); 
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void left() {
+  analogWrite(ENA, 175);
+  analogWrite(ENB, 230);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void stop() {
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
+}
+
+void loop() {
+  svr = digitalRead(sr);
+  svl = digitalRead(sl);
+  if ((svl == HIGH) && (svr == HIGH)) {
+    forward();
+  } else if ((svl == LOW) && (svr == HIGH)) {
+    left();
+  } else if ((svl == HIGH) && (svr == LOW)) {
+    right();
+  } else {
+    stop();
+  }
+
+  unsigned long timeNow = millis();
+  int currentStateCLK_Hole1 = digitalRead(Hole1);
+  if (currentStateCLK_Hole1 != lastStateCLK_Hole1 && currentStateCLK_Hole1 == 1) {
+    counter_Hole1++;
+  }
+  lastStateCLK_Hole1 = currentStateCLK_Hole1;
+
+  int currentStateCLK_Hole2 = digitalRead(Hole2);
+  if (currentStateCLK_Hole2 != lastStateCLK_Hole2 && currentStateCLK_Hole2 == 1) {
+    counter_Hole2++; 
+  }
+  lastStateCLK_Hole2 = currentStateCLK_Hole2;
+
+  if (timeNow - timeLast >= timeInterval) {
+    int countDifference_Hole1 = counter_Hole1 - lastCounter_Hole1;
+    distance_Hole1 += ((countDifference_Hole1 / PPR) * Circumference) / 100;
+    int countDifference_Hole2 = counter_Hole2 - lastCounter_Hole2;
+    distance_Hole2 += ((countDifference_Hole2 / PPR) * Circumference) / 100;
+    lcd.setCursor(0, 0);
+    lcd.print("                ");
+    lcd.setCursor(0, 0);
+    lcd.print("Distance: ");
+    avgDist = (distance_Hole1 + distance_Hole2) / 2;
+    lcd.print(avgDist, 2);
+    lcd.print(" m");
+    Serial.print("Hole1 Distance: ");
+    Serial.print(distance_Hole1, 2);
+    Serial.print(" m, Hole2 Distance: ");
+    Serial.print(distance_Hole2, 2);
+    Serial.print(" m, Avg Distance: ");
+    Serial.println(avgDist, 2);
+    lastCounter_Hole1 = counter_Hole1;
+    lastCounter_Hole2 = counter_Hole2;
+    timeLast = timeNow;
+  }
+}
